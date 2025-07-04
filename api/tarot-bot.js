@@ -1,10 +1,14 @@
-const axios = require('axios');
+import axios from 'axios';
 
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Only POST method is allowed.' });
+  }
+
   const { prompt } = req.body;
 
   if (!prompt) {
-    return res.status(400).json({ error: 'Prompt missing.' });
+    return res.status(400).json({ error: 'Prompt is missing.' });
   }
 
   try {
@@ -15,7 +19,8 @@ export default async function handler(req, res) {
         messages: [
           {
             role: 'system',
-            content: 'You are a tarot AI. Respond with poetic, magical advice based on user questions.',
+            content:
+              'You are a magical Tarot AI. Give mystical advice with poetic language.',
           },
           {
             role: 'user',
@@ -33,9 +38,9 @@ export default async function handler(req, res) {
     );
 
     const reply = response.data?.choices?.[0]?.message?.content;
-    res.status(200).json({ reply });
+    return res.status(200).json({ reply: reply || '✨ The spirits are silent.' });
   } catch (error) {
     console.error('[Groq API Error]', error?.response?.data || error.message);
-    res.status(500).json({ error: 'Groq API failed.' });
+    return res.status(500).json({ error: 'Groq API failed.' });
   }
 }
