@@ -11,16 +11,11 @@ module.exports = async (req, res) => {
       {
         model: 'gpt-3.5-turbo',
         messages: [
-          {
-            role: 'system',
-            content: 'You are a mystical Tarot reader who gives creative, short answers.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
+          { role: 'system', content: 'You are a helpful, magical Tarot AI that gives short, mystical answers like a Tarot reader.' },
+          { role: 'user', content: prompt }
         ],
         temperature: 0.9,
+        max_tokens: 150,
       },
       {
         headers: {
@@ -32,8 +27,8 @@ module.exports = async (req, res) => {
 
     const reply = response.data.choices[0].message.content;
     res.status(200).json({ reply });
-  } catch (err) {
-    console.error('OpenAI error:', err.response?.data || err.message);
-    res.status(500).json({ error: 'OpenAI API failed.' });
+  } catch (error) {
+    console.error('OpenAI error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to fetch response from OpenAI.' });
   }
 };
