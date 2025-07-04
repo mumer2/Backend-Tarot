@@ -7,23 +7,33 @@ module.exports = async (req, res) => {
 
   try {
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
+      'https://api.openai.com/v1/chat/completions',
       {
-        inputs: `You are a wise and mystical Tarot bot. Answer concisely.\nUser: ${prompt}\nBot:`,
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a mystical Tarot reader who gives creative, short answers.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.9,
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.HF_TOKEN}`,
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        timeout: 60_000,
       }
     );
 
-    const reply = response.data?.[0]?.generated_text?.split('Bot:')[1]?.trim();
-    res.status(200).json({ reply: reply || '✨ The spirits are silent...' });
-  } catch (error) {
-    console.error('HuggingFace error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to fetch reply from model.' });
+    const reply = response.data.choices[0].message.content;
+    res.status(200).json({ reply });
+  } catch (err) {
+    console.error('OpenAI error:', err.response?.data || err.message);
+    res.status(500).json({ error: 'OpenAI API failed.' });
   }
 };
