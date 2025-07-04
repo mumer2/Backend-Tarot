@@ -1,70 +1,42 @@
-const axios = require("axios");
+const axios = require('axios');
 
-exports.handler = async function (event) {
-  const apiKey = process.env.GROQ_API_KEY_TAROT;
+module.exports = async (req, res) => {
+  const { prompt } = req.body;
 
-  if (!apiKey) {
-    console.error("❌ GROQ_API_KEY is missing in environment variables.");
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Missing GROQ_API_KEY in environment" }),
-    };
-  }
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Only POST allowed" }),
-    };
-  }
-
-  let body;
-  try {
-    body = JSON.parse(event.body);
-  } catch {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Invalid JSON" }),
-    };
-  }
-
-  const { question } = body;
-  if (!question) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "Question is required" }),
-    };
+  if (!prompt) {
+    return res.status(400).json({ error: 'Missing prompt' });
   }
 
   try {
     const response = await axios.post(
-      "https://api.groq.com/openai/v1/chat/completions",
+      'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: "llama3-8b-8192", // ✅ Updated to supported model
-        messages: [{ role: "user", content: question }],
+        model: 'mixtral-8x7b-32768', // ✅ Supported Groq model
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a mystical tarot bot. Answer in short poetic language.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
       },
       {
         headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
         },
       }
     );
 
-    const answer = response.data.choices[0].message.content;
+    const botReply = response.data?.choices?.[0]?.message?.content || '✨ The spirits are silent.';
+    return res.status(200).json({ reply: botReply });
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ answer }),
-    };
   } catch (error) {
-    console.error("❌ Groq API error:", error.response?.data || error.message);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: "Groq request failed",
-        details: error.response?.data || error.message,
-      }),
-    };
+    console.error('[Groq API Error]', error.response?.data || error.message);
+    return res.status(500).json({ error: 'Groq API failed.' });
   }
 };
