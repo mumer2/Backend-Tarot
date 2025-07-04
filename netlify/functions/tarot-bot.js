@@ -1,59 +1,80 @@
-const axios = require('axios');
+const axios = require("axios");
 
-exports.handler = async function (event, context) {
-  if (event.httpMethod !== 'POST') {
+exports.handler = async function (event) {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    console.error("❌ Missing GROQ_API_KEY");
     return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Only POST method is allowed.' }),
+      statusCode: 500,
+      body: JSON.stringify({ error: "Missing GROQ_API_KEY" }),
     };
   }
 
-  const { prompt } = JSON.parse(event.body);
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Only POST method allowed" }),
+    };
+  }
 
+  let body;
+  try {
+    body = JSON.parse(event.body);
+  } catch {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Invalid JSON" }),
+    };
+  }
+
+  const { prompt } = body;
   if (!prompt) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Prompt is missing.' }),
+      body: JSON.stringify({ error: "Missing prompt" }),
     };
   }
 
   try {
     const response = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
+      "https://api.groq.com/openai/v1/chat/completions",
       {
-        model: 'mixtral-8x7b-32768',
+        model: "llama3-8b-8192",
         messages: [
           {
-            role: 'system',
-            content:
-              'You are a magical Tarot AI. Give mystical advice with poetic language.',
+            role: "system",
+            content: "You are a mystical tarot expert. Answer with poetic, magical, and short responses like a fortune teller.",
           },
           {
-            role: 'user',
+            role: "user",
             content: prompt,
           },
         ],
-        temperature: 0.7,
+        temperature: 0.8,
       },
       {
         headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
         },
       }
     );
 
-    const reply = response.data?.choices?.[0]?.message?.content;
+    const answer = response.data.choices?.[0]?.message?.content;
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ reply: reply || '✨ The spirits are silent.' }),
+      body: JSON.stringify({ reply: answer || "✨ The spirits are quiet..." }),
     };
   } catch (error) {
-    console.error('[Groq API Error]', error.message);
+    console.error("❌ Groq API error:", error.response?.data || error.message);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Groq API failed.' }),
+      body: JSON.stringify({
+        error: "Groq request failed",
+        details: error.response?.data || error.message,
+      }),
     };
   }
 };
