@@ -1,7 +1,7 @@
 const axios = require("axios");
 
 exports.handler = async function (event) {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY_TAROT;
 
   if (!apiKey) {
     console.error("❌ GROQ_API_KEY is missing in environment variables.");
