@@ -1,14 +1,20 @@
-import axios from 'axios';
+const axios = require('axios');
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Only POST method is allowed.' });
+exports.handler = async function (event, context) {
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Only POST method is allowed.' }),
+    };
   }
 
-  const { prompt } = req.body;
+  const { prompt } = JSON.parse(event.body);
 
   if (!prompt) {
-    return res.status(400).json({ error: 'Prompt is missing.' });
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Prompt is missing.' }),
+    };
   }
 
   try {
@@ -38,9 +44,16 @@ export default async function handler(req, res) {
     );
 
     const reply = response.data?.choices?.[0]?.message?.content;
-    return res.status(200).json({ reply: reply || '✨ The spirits are silent.' });
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ reply: reply || '✨ The spirits are silent.' }),
+    };
   } catch (error) {
-    console.error('[Groq API Error]', error?.response?.data || error.message);
-    return res.status(500).json({ error: 'Groq API failed.' });
+    console.error('[Groq API Error]', error.message);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Groq API failed.' }),
+    };
   }
-}
+};
