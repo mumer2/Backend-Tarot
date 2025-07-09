@@ -1,15 +1,18 @@
-const { MongoClient } = require('mongodb');
-const uri = process.env.MONGO_URI;
-const client = new MongoClient(uri);
+// netlify/functions/utils/db.js
 
-let db = null;
+const { MongoClient } = require('mongodb');
+
+let cachedClient = null;
+
+const uri = process.env.MONGO_URI;
 
 async function connectDB() {
-  if (!db) {
-    await client.connect();
-    db = client.db('tarot-station');
-  }
-  return db;
+  if (cachedClient) return cachedClient;
+
+  const client = new MongoClient(uri);
+  await client.connect();
+  cachedClient = client.db(); // get default DB
+  return cachedClient;
 }
 
 module.exports = connectDB;
