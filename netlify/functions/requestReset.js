@@ -30,7 +30,7 @@ exports.handler = async (event) => {
     }
 
     await client.connect();
-    const db = client.db('tarot_station');
+    const db = client.db('tarot-station');
     const user = await db.collection('users').findOne({ email });
 
     if (!user) {
