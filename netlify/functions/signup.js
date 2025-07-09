@@ -1,23 +1,35 @@
 const bcrypt = require('bcryptjs');
-const connectDB = require('../utils/db');
-const { generateToken } = require('../utils/auth');
+const jwt = require('jsonwebtoken');
+
+const users = {}; // In-memory mock DB (replace with real DB)
 
 exports.handler = async (event) => {
-  const { email, password } = JSON.parse(event.body);
-  const db = await connectDB();
-  const existing = await db.collection('users').findOne({ email });
-
-  if (existing) {
-    return { statusCode: 400, body: 'User already exists.' };
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  const hashed = await bcrypt.hash(password, 10);
-  const user = { email, password: hashed };
-  await db.collection('users').insertOne(user);
+  try {
+    const { email, password } = JSON.parse(event.body);
+    if (!email || !password) {
+      return { statusCode: 400, body: 'Missing fields' };
+    }
 
-  const token = generateToken({ email });
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ token, email }),
-  };
+    if (users[email]) {
+      return { statusCode: 409, body: 'User already exists' };
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    users[email] = { email, password: hashed };
+
+    const token = jwt.sign({ email }, process.env.JWT_SECRET || 'your-secret-key');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ token }),
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Server error', error: err.message }),
+    };
+  }
 };
