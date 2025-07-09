@@ -1,6 +1,6 @@
 // utils/db.js or netlify/functions/db.js
 const { MongoClient } = require('mongodb');
-const client = new MongoClient(process.env.MONGO_DB_URI);
+const client = new MongoClient(process.env.MONGO_URI);
 
 let cachedDb = null;
 
