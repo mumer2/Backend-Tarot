@@ -1,35 +1,73 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { MongoClient } = require('mongodb');
 
-const users = {}; // In-memory mock DB (replace with real DB)
+const client = new MongoClient(process.env.MONGO_URI);
+let db;
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ message: 'Method Not Allowed' }),
+    };
   }
 
   try {
-    const { email, password } = JSON.parse(event.body);
-    if (!email || !password) {
-      return { statusCode: 400, body: 'Missing fields' };
+    const { name, email, password } = JSON.parse(event.body);
+
+    if (!name || !email || !password) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Missing name, email, or password' }),
+      };
     }
 
-    if (users[email]) {
-      return { statusCode: 409, body: 'User already exists' };
+    // Connect to MongoDB if not already connected
+    if (!db) {
+      await client.connect();
+      db = client.db('tarot-station'); // Use your database name
     }
 
-    const hashed = await bcrypt.hash(password, 10);
-    users[email] = { email, password: hashed };
+    const usersCollection = db.collection('users');
+    const existing = await usersCollection.findOne({ email });
 
-    const token = jwt.sign({ email }, process.env.JWT_SECRET || 'your-secret-key');
+    if (existing) {
+      return {
+        statusCode: 409,
+        body: JSON.stringify({ message: 'User already exists' }),
+      };
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = {
+      name,
+      email,
+      password: hashedPassword,
+      createdAt: new Date(),
+    };
+
+    await usersCollection.insertOne(newUser);
+
+    const token = jwt.sign(
+      { email, name },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '7d' }
+    );
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ token }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token, success: true }),
     };
-  } catch (err) {
+  } catch (error) {
+    console.error('Signup error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Server error', error: err.message }),
+      body: JSON.stringify({ message: 'Server error', error: error.message }),
     };
   }
 };
