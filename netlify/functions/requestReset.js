@@ -6,7 +6,7 @@ const client = new MongoClient(process.env.MONGO_URI);
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_FROM,
+    user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
@@ -30,7 +30,7 @@ exports.handler = async (event) => {
     }
 
     await client.connect();
-    const db = client.db('your-db-name');
+    const db = client.db('tarot_station');
     const user = await db.collection('users').findOne({ email });
 
     if (!user) {
