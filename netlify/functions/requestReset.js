@@ -1,8 +1,10 @@
+// netlify/functions/requestReset.js
 const nodemailer = require('nodemailer');
 const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 const client = new MongoClient(process.env.MONGO_URI);
+
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -13,19 +15,15 @@ const transporter = nodemailer.createTransport({
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ message: 'Method Not Allowed' }),
-    };
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
     const { email } = JSON.parse(event.body);
-
     if (!email) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: 'Email is required' }),
+        body: JSON.stringify({ success: false, message: 'Email is required' }),
       };
     }
 
@@ -36,11 +34,11 @@ exports.handler = async (event) => {
     if (!user) {
       return {
         statusCode: 404,
-        body: JSON.stringify({ message: 'User not found' }),
+        body: JSON.stringify({ success: false, message: 'User not found' }),
       };
     }
 
-    const token = Math.floor(100000 + Math.random() * 900000).toString(); // OTP or token
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
 
     await db.collection('reset_tokens').insertOne({
       email,
@@ -50,19 +48,28 @@ exports.handler = async (event) => {
 
     await transporter.sendMail({
       to: email,
-      subject: 'Password Reset',
+      subject: '🔐 Password Reset Code',
       html: `<p>Your password reset code is: <strong>${token}</strong></p>`,
     });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Email sent' }),
+      body: JSON.stringify({
+        success: true,
+        message: 'Email sent',
+        token,      // ✅ Return token in response
+        email,      // ✅ Also return email for convenience
+      }),
     };
   } catch (err) {
-    console.error('Reset error:', err);
+    console.error('Reset error:', err.message);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Server error', error: err.message }),
+      body: JSON.stringify({
+        success: false,
+        message: 'Server error',
+        error: err.message,
+      }),
     };
   }
 };
