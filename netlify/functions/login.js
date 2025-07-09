@@ -1,17 +1,13 @@
+// netlify/functions/login.js
 const bcrypt = require('bcryptjs');
-const connectDB = require('../utils/db');
-const { generateToken } = require('../utils/auth');
+const connectDB = require('./utils/db');
+const { generateToken } = require('./utils/auth');
 
 exports.handler = async (event) => {
-  // CORS preflight support
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
+      headers: corsHeaders(),
       body: '',
     };
   }
@@ -19,10 +15,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
+      headers: corsHeaders(),
       body: JSON.stringify({ message: 'Method Not Allowed' }),
     };
   }
@@ -33,10 +26,7 @@ exports.handler = async (event) => {
     if (!email || !password) {
       return {
         statusCode: 400,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
+        headers: corsHeaders(),
         body: JSON.stringify({ message: 'Email and password required' }),
       };
     }
@@ -47,10 +37,7 @@ exports.handler = async (event) => {
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return {
         statusCode: 401,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
+        headers: corsHeaders(),
         body: JSON.stringify({ message: 'Invalid email or password' }),
       };
     }
@@ -59,27 +46,26 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
+      headers: corsHeaders(),
       body: JSON.stringify({
         token,
         user: { email: user.email, name: user.name },
       }),
     };
   } catch (err) {
-    console.error('Login error:', err.message);
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: 'Server error',
-        error: err.message,
-      }),
+      headers: corsHeaders(),
+      body: JSON.stringify({ message: 'Login failed', error: err.message }),
     };
   }
 };
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Content-Type': 'application/json',
+  };
+}

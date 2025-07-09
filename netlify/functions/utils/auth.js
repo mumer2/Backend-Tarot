@@ -1,7 +1,10 @@
+// netlify/functions/utils/auth.js
 const jwt = require('jsonwebtoken');
 
-exports.generateToken = (payload) => {
-  return jwt.sign(payload, process.env.JWT_SECRET || 'your-secret-key', {
-    expiresIn: '7d',
-  });
-};
+const secret = process.env.JWT_SECRET || 'your-secret-key';
+
+function generateToken(payload) {
+  return jwt.sign(payload, secret, { expiresIn: '7d' });
+}
+
+module.exports = { generateToken };

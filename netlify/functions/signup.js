@@ -1,14 +1,21 @@
+// netlify/functions/signup.js
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { MongoClient } = require('mongodb');
-
-const client = new MongoClient(process.env.MONGO_URI);
-let db;
+const connectDB = require('./utils/db');
+const { generateToken } = require('./utils/auth');
 
 exports.handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: corsHeaders(),
+      body: '',
+    };
+  }
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
+      headers: corsHeaders(),
       body: JSON.stringify({ message: 'Method Not Allowed' }),
     };
   }
@@ -16,58 +23,49 @@ exports.handler = async (event) => {
   try {
     const { name, email, password } = JSON.parse(event.body);
 
-    if (!name || !email || !password) {
+    if (!email || !password || !name) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ message: 'Missing name, email, or password' }),
+        headers: corsHeaders(),
+        body: JSON.stringify({ message: 'All fields are required' }),
       };
     }
 
-    // Connect to MongoDB if not already connected
-    if (!db) {
-      await client.connect();
-      db = client.db('tarot-station'); // Use your database name
-    }
-
-    const usersCollection = db.collection('users');
-    const existing = await usersCollection.findOne({ email });
+    const db = await connectDB();
+    const existing = await db.collection('users').findOne({ email });
 
     if (existing) {
       return {
         statusCode: 409,
+        headers: corsHeaders(),
         body: JSON.stringify({ message: 'User already exists' }),
       };
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = {
-      name,
-      email,
-      password: hashedPassword,
-      createdAt: new Date(),
-    };
+    await db.collection('users').insertOne({ name, email, password: hashedPassword });
 
-    await usersCollection.insertOne(newUser);
-
-    const token = jwt.sign(
-      { email, name },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
-    );
+    const token = generateToken({ email, name });
 
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token, success: true }),
+      headers: corsHeaders(),
+      body: JSON.stringify({ token, user: { name, email } }),
     };
   } catch (error) {
-    console.error('Signup error:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Server error', error: error.message }),
+      headers: corsHeaders(),
+      body: JSON.stringify({ message: 'Signup failed', error: error.message }),
     };
   }
 };
+
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Content-Type': 'application/json',
+  };
+}
