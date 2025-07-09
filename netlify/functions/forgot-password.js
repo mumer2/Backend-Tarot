@@ -1,29 +1,38 @@
 const connectDB = require('../utils/db');
-const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
+  }
+
   const { email } = JSON.parse(event.body);
+  if (!email) {
+    return { statusCode: 400, body: 'Email required' };
+  }
+
   const db = await connectDB();
   const user = await db.collection('users').findOne({ email });
 
-  if (!user) return { statusCode: 404, body: 'User not found' };
+  if (!user) {
+    return { statusCode: 404, body: 'User not found' };
+  }
 
-  const token = Math.floor(100000 + Math.random() * 900000).toString();
-  await db.collection('users').updateOne({ email }, { $set: { resetCode: token } });
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiry = Date.now() + 1000 * 60 * 15; // 15 min
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
+  await db.collection('reset_tokens').insertOne({
+    email,
+    token,
+    expiresAt: new Date(expiry),
   });
 
-  await transporter.sendMail({
-    to: email,
-    subject: 'Reset Code',
-    text: `Your reset code is: ${token}`,
-  });
+  const resetLink = `tarotstation://reset-password?token=${token}`;
 
-  return { statusCode: 200, body: 'Reset code sent to email' };
+  console.log(`Reset link: ${resetLink}`); // Later replace with email sending
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Reset link generated (check console).' }),
+  };
 };
