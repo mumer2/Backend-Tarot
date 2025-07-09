@@ -1,21 +1,16 @@
-// netlify/functions/utils/db.js
+// utils/db.js or netlify/functions/db.js
 const { MongoClient } = require('mongodb');
+const client = new MongoClient(process.env.MONGO_DB_URI);
 
-let cachedDB = null;
-
-const uri = process.env.MONGO_URI;
+let cachedDb = null;
 
 async function connectDB() {
-  if (cachedDB) return cachedDB;
+  if (cachedDb) return cachedDb;
 
-  if (!uri) {
-    throw new Error('MONGO_URI not defined in environment variables');
-  }
-
-  const client = new MongoClient(uri);
   await client.connect();
-  cachedDB = client.db(); // Use default DB
-  return cachedDB;
+  const db = client.db('tarot-station'); // 👈 ensure you use the correct DB name here
+  cachedDb = db;
+  return db;
 }
 
 module.exports = connectDB;
