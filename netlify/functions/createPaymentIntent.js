@@ -39,17 +39,16 @@ exports.handler = async (event) => {
       metadata: { userId },
     });
 
-    // 💾 Store transaction in MongoDB
+    // 💾 Store in wallet_history (not wallet_transactions)
     await client.connect();
-    const db = client.db('tarot_station');
-    const transactions = db.collection('wallet_transactions');
+    const db = client.db('tarot-station'); // ✅ match your DB name
 
-    await transactions.insertOne({
+    await db.collection('wallet_history').insertOne({
       userId,
       amount,
       currency: 'usd',
       paymentIntentId: paymentIntent.id,
-      status: 'pending',
+      status: 'pending', // will stay pending unless updated later
       createdAt: new Date(),
     });
 
