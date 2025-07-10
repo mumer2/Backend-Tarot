@@ -3,8 +3,26 @@
 const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
-const client = new MongoClient(process.env.MONGO_URI);
-let db;
+let cachedClient = null;
+let cachedDb = null;
+
+async function connectToDB() {
+  if (cachedDb) return cachedDb;
+
+  const client = cachedClient || new MongoClient(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+
+  if (!cachedClient) {
+    await client.connect();
+    cachedClient = client;
+  }
+
+  const dbName = 'tarot-station'; // 👈 hardcoded database name
+  cachedDb = client.db(dbName);
+  return cachedDb;
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -34,10 +52,7 @@ exports.handler = async (event) => {
       };
     }
 
-    if (!db) {
-      await client.connect();
-      db = client.db(); // default DB from URI
-    }
+    const db = await connectToDB();
 
     const history = await db
       .collection('wallet_history')
