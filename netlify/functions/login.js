@@ -49,7 +49,12 @@ exports.handler = async (event) => {
       headers: corsHeaders(),
       body: JSON.stringify({
         token,
-        user: { email: user.email, name: user.name },
+        user: {
+          _id: user._id,                // ✅ include MongoDB ID
+          email: user.email,
+          name: user.name,
+          balance: user.balance || 0,   // ✅ optional: return wallet balance
+        },
       }),
     };
   } catch (err) {

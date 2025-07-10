@@ -33,10 +33,24 @@ exports.handler = async (event) => {
 
     // 🧾 Create PaymentIntent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.floor(amount * 100), // convert to cents
+      amount: Math.floor(amount * 100), // cents
       currency: 'usd',
       payment_method_types: ['card'],
       metadata: { userId },
+    });
+
+    // 💾 Store transaction in MongoDB
+    await client.connect();
+    const db = client.db('tarot_station');
+    const transactions = db.collection('wallet_transactions');
+
+    await transactions.insertOne({
+      userId,
+      amount,
+      currency: 'usd',
+      paymentIntentId: paymentIntent.id,
+      status: 'pending',
+      createdAt: new Date(),
     });
 
     return {
@@ -44,9 +58,8 @@ exports.handler = async (event) => {
       body: JSON.stringify({ clientSecret: paymentIntent.client_secret }),
     };
   } catch (error) {
-    console.error('❌ Stripe error:', error.message);
+    console.error('❌ Stripe or DB error:', error.message);
 
-    // 🧠 Handle specific Stripe errors if needed
     if (error.type === 'StripeCardError') {
       return {
         statusCode: 402,
@@ -56,7 +69,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Internal Server Error: ' + error.message }),
+      body: JSON.stringify({ message: 'Server Error: ' + error.message }),
     };
   }
 };
