@@ -27,13 +27,13 @@ exports.handler = async (event) => {
     const key = process.env.WECHAT_API_KEY;
 
     const notify_url =
-      "https://backend-calorieai-app.netlify.app/.netlify/functions/wechat-notify";
+      "https://backend-tarot.netlify.app/.netlify/functions/wechat-notify";
     const trade_type = "MWEB";
   const scene_info = JSON.stringify({
   h5_info: {
     type: "Wap",
-    wap_url: "https://calorieai-app.netlify.app",
-    wap_name: "Calorie AI",
+    wap_url: "https://tarot-station.netlify.app",
+    wap_name: "Tarot Station",
   },
 });
 
