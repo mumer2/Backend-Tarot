@@ -13,7 +13,7 @@ const connectDB = async () => {
   return client.db("tarot-station");
 };
 
-// Signature helper
+// ✅ Signature helper
 const createSign = (params, key) => {
   const stringA = Object.keys(params)
     .filter(k => params[k] !== undefined && params[k] !== "")
@@ -34,12 +34,12 @@ exports.handler = async (event) => {
     const shortUserId = userId.slice(0, 6);
     const out_trade_no = `U${shortUserId}${Date.now().toString().slice(-10)}`;
 
-    // ✅ CONFIG
+    // ✅ Load config from env
     const appid = process.env.WECHAT_APPID;
     const mch_id = process.env.WECHAT_MCH_ID;
     const key = process.env.WECHAT_API_KEY;
     const notify_url = "https://backend-tarot.netlify.app/.netlify/functions/wechat-notify";
-    const trade_type = "APP"; // ✅ Native app pay
+    const trade_type = "APP";
 
     const params = {
       appid,
@@ -48,9 +48,10 @@ exports.handler = async (event) => {
       body: "Tarot Wallet Recharge",
       out_trade_no,
       total_fee: total_fee.toString(),
-      spbill_create_ip: "127.0.0.1",
+      spbill_create_ip: "8.8.8.8", // ✅ Use fallback IP
       notify_url,
-      trade_type
+      trade_type,
+      sign_type: "MD5"
     };
 
     const sign = createSign(params, key);
@@ -69,7 +70,7 @@ exports.handler = async (event) => {
     const parsed = await xml2js.parseStringPromise(response.data, { explicitArray: false });
     const result = parsed.xml;
 
-    console.log("🟢 WeChat Pay Response:", result);
+    console.log("🔁 WeChat unifiedorder result:", result);
 
     if (result.return_code === "SUCCESS" && result.result_code === "SUCCESS") {
       const prepay_id = result.prepay_id;
@@ -77,7 +78,6 @@ exports.handler = async (event) => {
       const timeStamp = generateTimestamp();
       const packageVal = "Sign=WXPay";
 
-      // ✅ Sign second-level params
       const paySignParams = {
         appid,
         partnerid: mch_id,
