@@ -41,14 +41,15 @@ exports.handler = async (event) => {
     const notify_url = "https://backend-tarot.netlify.app/.netlify/functions/wechat-notify";
     const trade_type = "APP";
 
+    const nonceStr = generateNonceStr();
     const params = {
       appid,
       mch_id,
-      nonce_str: generateNonceStr(),
+      nonce_str: nonceStr,
       body: "Tarot Wallet Recharge",
       out_trade_no,
       total_fee: total_fee.toString(),
-      spbill_create_ip: "8.8.8.8", // ✅ Use fallback IP
+      spbill_create_ip: "8.8.8.8",
       notify_url,
       trade_type,
       sign_type: "MD5"
@@ -74,17 +75,17 @@ exports.handler = async (event) => {
 
     if (result.return_code === "SUCCESS" && result.result_code === "SUCCESS") {
       const prepay_id = result.prepay_id;
-      const nonceStr = generateNonceStr();
+      const newNonceStr = generateNonceStr();
       const timeStamp = generateTimestamp();
       const packageVal = "Sign=WXPay";
 
       const paySignParams = {
         appid,
-        partnerid: mch_id,
-        prepayid: prepay_id,
+        partnerId: mch_id,
+        prepayId: prepay_id,
         package: packageVal,
-        noncestr: nonceStr,
-        timestamp: timeStamp
+        nonceStr: newNonceStr,
+        timeStamp: timeStamp
       };
 
       const paySign = createSign(paySignParams, key);
@@ -101,16 +102,15 @@ exports.handler = async (event) => {
 
       return {
         statusCode: 200,
-      body: JSON.stringify({
-  partnerId: mch_id,
-  prepayId: prepay_id,
-  nonceStr: nonceStr,
-  timeStamp: timeStamp,
-  package: packageVal,
-  sign: paySign,
-  out_trade_no
-})
-
+        body: JSON.stringify({
+          partnerId: mch_id,
+          prepayId: prepay_id,
+          nonceStr: newNonceStr,
+          timeStamp,
+          package: packageVal,
+          sign: paySign,
+          out_trade_no
+        })
       };
     } else {
       return {
