@@ -5,12 +5,24 @@ const { MongoClient } = require("mongodb");
 require("dotenv").config();
 
 const generateNonceStr = () => Math.random().toString(36).substring(2, 15);
+const generateTimestamp = () => Math.floor(Date.now() / 1000).toString();
 
-// Connect to MongoDB
 const connectDB = async () => {
   const client = new MongoClient(process.env.MONGO_URI);
   await client.connect();
   return client.db("tarot-station");
+};
+
+// Signature helper
+const createSign = (params, key) => {
+  const stringA = Object.keys(params)
+    .filter(k => params[k] !== undefined && params[k] !== "")
+    .sort()
+    .map(k => `${k}=${params[k]}`)
+    .join("&");
+
+  const stringSignTemp = `${stringA}&key=${key}`;
+  return crypto.createHash("md5").update(stringSignTemp, "utf8").digest("hex").toUpperCase();
 };
 
 exports.handler = async (event) => {
@@ -27,58 +39,30 @@ exports.handler = async (event) => {
     const mch_id = process.env.WECHAT_MCH_ID;
     const key = process.env.WECHAT_API_KEY;
     const notify_url = "https://backend-tarot.netlify.app/.netlify/functions/wechat-notify";
-    const trade_type = "MWEB";
+    const trade_type = "APP"; // ✅ Native app pay
 
-    // ✅ scene_info must be a stringified JSON object
-    const scene_info = JSON.stringify({
-      h5_info: {
-        type: "Wap",
-        wap_url: "https://tarot-station.netlify.app", // ✅ must be reachable
-        wap_name: "Tarot Station"
-      }
-    });
-
-    // ✅ PARAMS
     const params = {
       appid,
       mch_id,
       nonce_str: generateNonceStr(),
       body: "Tarot Wallet Recharge",
       out_trade_no,
-      total_fee: total_fee.toString(), // must be string
+      total_fee: total_fee.toString(),
       spbill_create_ip: "127.0.0.1",
       notify_url,
-      trade_type,
-      scene_info
+      trade_type
     };
 
-    // ✅ SIGNATURE
-    const stringA = Object.keys(params)
-      .filter((k) => params[k] !== undefined && params[k] !== "")
-      .sort()
-      .map((k) => `${k}=${params[k]}`)
-      .join("&");
+    const sign = createSign(params, key);
 
-    const stringSignTemp = `${stringA}&key=${key}`;
-    const sign = crypto.createHash("md5").update(stringSignTemp, "utf8").digest("hex").toUpperCase();
-
-    // ✅ Build XML
-    const builder = new xml2js.Builder({
-      rootName: "xml",
-      headless: true,
-      cdata: true
-    });
-
+    const builder = new xml2js.Builder({ rootName: "xml", headless: true, cdata: true });
     const xmlData = builder.buildObject({ ...params, sign });
 
-    // ✅ Send to unifiedorder endpoint
     const response = await axios.post(
       "https://api.mch.weixin.qq.com/pay/unifiedorder",
       xmlData,
       {
-        headers: {
-          "Content-Type": "text/xml; charset=utf-8"
-        }
+        headers: { "Content-Type": "text/xml; charset=utf-8" }
       }
     );
 
@@ -88,6 +72,23 @@ exports.handler = async (event) => {
     console.log("🟢 WeChat Pay Response:", result);
 
     if (result.return_code === "SUCCESS" && result.result_code === "SUCCESS") {
+      const prepay_id = result.prepay_id;
+      const nonceStr = generateNonceStr();
+      const timeStamp = generateTimestamp();
+      const packageVal = "Sign=WXPay";
+
+      // ✅ Sign second-level params
+      const paySignParams = {
+        appid,
+        partnerid: mch_id,
+        prepayid: prepay_id,
+        package: packageVal,
+        noncestr: nonceStr,
+        timestamp: timeStamp
+      };
+
+      const paySign = createSign(paySignParams, key);
+
       // ✅ Save order to DB
       const db = await connectDB();
       await db.collection("wechat_orders").insertOne({
@@ -101,7 +102,13 @@ exports.handler = async (event) => {
       return {
         statusCode: 200,
         body: JSON.stringify({
-          mweb_url: result.mweb_url,
+          appid,
+          partnerid: mch_id,
+          prepayid: prepay_id,
+          package: packageVal,
+          noncestr: nonceStr,
+          timestamp: timeStamp,
+          sign: paySign,
           out_trade_no
         })
       };
