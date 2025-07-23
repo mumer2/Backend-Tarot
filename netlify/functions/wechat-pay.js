@@ -13,7 +13,6 @@ const connectDB = async () => {
   return client.db("tarot-station");
 };
 
-// ✅ Signature helper
 const createSign = (params, key) => {
   const stringA = Object.keys(params)
     .filter(k => params[k] !== undefined && params[k] !== "")
@@ -34,18 +33,17 @@ exports.handler = async (event) => {
     const shortUserId = userId.slice(0, 6);
     const out_trade_no = `U${shortUserId}${Date.now().toString().slice(-10)}`;
 
-    // ✅ Load config from env
     const appid = process.env.WECHAT_APPID;
     const mch_id = process.env.WECHAT_MCH_ID;
     const key = process.env.WECHAT_API_KEY;
     const notify_url = "https://backend-tarot.netlify.app/.netlify/functions/wechat-notify";
     const trade_type = "APP";
 
-    const nonceStr = generateNonceStr();
+    const nonce_str = generateNonceStr(); // Reused below for app pay signature
     const params = {
       appid,
       mch_id,
-      nonce_str: nonceStr,
+      nonce_str,
       body: "Tarot Wallet Recharge",
       out_trade_no,
       total_fee: total_fee.toString(),
@@ -75,22 +73,21 @@ exports.handler = async (event) => {
 
     if (result.return_code === "SUCCESS" && result.result_code === "SUCCESS") {
       const prepay_id = result.prepay_id;
-      const newNonceStr = generateNonceStr();
       const timeStamp = generateTimestamp();
       const packageVal = "Sign=WXPay";
 
+      // ❗ Use lowercase keys to generate signature as required by WeChat App SDK
       const paySignParams = {
         appid,
-        partnerId: mch_id,
-        prepayId: prepay_id,
+        partnerid: mch_id,
+        prepayid: prepay_id,
         package: packageVal,
-        nonceStr: newNonceStr,
-        timeStamp: timeStamp
+        noncestr: nonce_str, // Must match original nonce_str
+        timestamp: timeStamp
       };
 
       const paySign = createSign(paySignParams, key);
 
-      // ✅ Save order to DB
       const db = await connectDB();
       await db.collection("wechat_orders").insertOne({
         out_trade_no,
@@ -103,9 +100,10 @@ exports.handler = async (event) => {
       return {
         statusCode: 200,
         body: JSON.stringify({
+          // ✅ Send camelCase back to frontend
           partnerId: mch_id,
           prepayId: prepay_id,
-          nonceStr: newNonceStr,
+          nonceStr: nonce_str,
           timeStamp,
           package: packageVal,
           sign: paySign,
