@@ -101,16 +101,16 @@ exports.handler = async (event) => {
 
       return {
         statusCode: 200,
-        body: JSON.stringify({
-          appid,
-          partnerid: mch_id,
-          prepayid: prepay_id,
-          package: packageVal,
-          noncestr: nonceStr,
-          timestamp: timeStamp,
-          sign: paySign,
-          out_trade_no
-        })
+      body: JSON.stringify({
+  partnerId: mch_id,
+  prepayId: prepay_id,
+  nonceStr: nonceStr,
+  timeStamp: timeStamp,
+  package: packageVal,
+  sign: paySign,
+  out_trade_no
+})
+
       };
     } else {
       return {
